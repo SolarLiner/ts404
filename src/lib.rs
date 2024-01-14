@@ -12,6 +12,7 @@ use valib::simd::{AutoF64x2, SimdValue};
 use crate::dsp::{ClipperStage, InputStage, OutputStage, ToneStage};
 
 mod dsp;
+mod editor;
 mod gen;
 
 type Sample = AutoF64x2;
@@ -140,6 +141,10 @@ impl Plugin for Ts404 {
 
     fn params(&self) -> Arc<dyn Params> {
         self.params.clone()
+    }
+
+    fn editor(&mut self, _: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
+        Some(Box::new(editor::ui::create_editor(self.params.clone())))
     }
 
     fn initialize(

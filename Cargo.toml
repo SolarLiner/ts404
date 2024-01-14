@@ -16,9 +16,14 @@ crate-type = ["cdylib"]
 [dependencies]
 nalgebra = "0.32.3"
 nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git" }
+nih_plug_slint = { git = "https://github.com/ilmai/plugin-things.git" }
 num-traits = "0.2.17"
 numeric_literals = "0.2.0"
+slint = "1.3.2"
 valib = { git = "https://github.com/SolarLiner/valib.git" }
+
+[build-dependencies]
+slint-build = "1.3.2"
 
 [profile.dev]
 opt-level = 1

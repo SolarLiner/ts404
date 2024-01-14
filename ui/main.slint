@@ -1,0 +1,35 @@
+import { PluginParameter } from "parameter.slint";
+import { HorizontalBox } from "std-widgets.slint";
+import { ParameterKnob } from "knob.slint";
+
+export component PluginWindow {
+    in-out property <PluginParameter> drive;
+    in-out property <PluginParameter> distortion;
+    in-out property <PluginParameter> tone;
+    in-out property <PluginParameter> output-volume;
+    in property <length> knob-height: 50px;
+
+    callback begin-gesture(PluginParameter);
+    callback end-gesture(PluginParameter);
+    callback set-parameter(PluginParameter, float);
+    callback set-param-str(PluginParameter, string);
+
+    Rectangle {
+        background: green;
+        
+        HorizontalBox {
+            spacing: 1rem;
+
+            for parameter in [drive, distortion, tone, output-volume]: ParameterKnob {
+                height: knob-height;
+                parameter: parameter;
+
+                // FIXME: Callbacks need to be mapped manually
+                start-change => { begin-gesture(parameter); }
+                changed(value) => { set-parameter(parameter, value); }
+                end-change => { end-gesture(parameter); }
+                set-string(string) => { set-param-str(parameter, string); }
+            }
+        }
+    }
+}
