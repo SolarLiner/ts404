@@ -1,10 +1,11 @@
+import functools
+import operator
 from pathlib import Path
-from typing import Iterable
 
 import sympy as sm
 from lcapy import *
-from sympy.printing.rust import RustCodePrinter
-from sympy.utilities.codegen import RustCodeGen
+from valib.codegen import Visibility, SourceFile
+from valib.statespace import StateSpace
 
 
 def opamp_noninverting(zf, zg):
@@ -70,90 +71,15 @@ def statespace_output():
     return create_discrete_statespace(h)
 
 
-class MyRustPrinter(RustCodePrinter):
-    def __init__(self):
-        RustCodePrinter.__init__(self, {'user_functions': {'recip': 'simd_recip'}})
+def codegen_full(*names: tuple[str, DTStateSpace]) -> SourceFile:
+    def process(name: str, state_space: DTStateSpace):
+        return StateSpace(state_space).as_source_file(name, Visibility.CRATE)
 
-    def _print_Zero(self, expr):
-        return "T::from_f64(0f64)"
-
-    def _print_Exp1(self, expr, _type=False):
-        return "T::simd_e()"
-
-    def _print_Pi(self, expr, _type=False):
-        return "T::simd_pi()"
-
-    def _print_Integer(self, expr, _type=False):
-        s = str(expr)
-        return f"T::from_f64({s}f64)"
-
-    def _print_Float(self, expr, _type=False):
-        ret = str(expr)
-        return f"T::from_f64({ret})"
-
-    def _print_Rational(self, expr):
-        if expr.p == 1:
-            return f"T::from_f64({self._print(expr.q)}).simd_recip()"
-
-        p, q = tuple(f"T::from_f64({self._print(i)}f64)" for i in (expr.p, expr.q))
-        return f"{p} / {q}"
-
-    def _print_MatrixBase(self, A):
-        values = ", ".join(self._print(x) for x in A)
-        return f"SMatrix::<_, {A.rows}, {A.cols}>::new({values})"
-
-
-def write_codegen(prefix: str, name: str, state_space: DTStateSpace, params: dict):
-    codegen = RustCodeGen(project="ts404", printer=MyRustPrinter())
-    routines = [
-        codegen.routine(f"{name}_params", [v.sympy for v in params.values()], argument_sequence=None, global_vars=[]),
-        codegen.routine(name, tuple(m.sympy for m in [state_space.A, state_space.B, state_space.C, state_space.D]),
-                        argument_sequence=None, global_vars=[])]
-    codegen.write(routines, str(prefix), to_files=True, header=True)
-
-
-def codegen_header() -> Iterable[str]:
-    yield from ["#![allow(unused)]", "#![allow(non_snake_case)]", "", "use nalgebra::SMatrix;", "use valib::Scalar;",
-                "use valib::filters::statespace::StateSpace;", ]
-
-
-def codegen_statespace(name: str, state_space: DTStateSpace, public="pub(crate)") -> Iterable[str]:
-    from sympy.codegen import Assignment
-
-    def postprocess_codegen(s: str) -> str:
-        # Replacing in string after printing because there's no easy way of doing it from the printer
-        return s.replace('.recip(', '.simd_recip(').replace('.powi(', '.simd_powf(').replace('.powf(', '.simd_powf(')
-
-    nin = state_space.Nu
-    nstate = state_space.Nx
-    nout = state_space.Ny
-
-    printer = MyRustPrinter()
-    e = sm.Tuple(state_space.A, state_space.B, state_space.C, state_space.D)
-    sub, simpl = sm.cse(e)
-    args = ", ".join(f"{name}: T" for name in sorted(e.atoms(sm.Symbol), key=lambda v: str(v)))
-    yield f"{public} fn {name}<T: Scalar>({args}) -> StateSpace<T, {nin}, {nstate}, {nout}> {{"
-    for var, e in sub:
-        # Replacing in string after printing because there's no easy way of doing it from the printer
-        pp = printer.doprint(Assignment(var, e))
-        yield f"  let {postprocess_codegen(pp)};"
-    yield "  StateSpace::new("
-    for e in simpl[0]:
-        pp = printer.doprint(e)
-        yield f"    {postprocess_codegen(pp)},"
-    yield "  )"
-    yield "}"
-
-
-def codegen_full(*names: tuple[str, DTStateSpace], public="pub(crate)") -> Iterable[str]:
-    yield from codegen_header()
-    yield ""
-    for name, state_space in names:
-        yield from codegen_statespace(name, state_space, public)
-        yield ""
+    return functools.reduce(operator.or_, (process(name, ss) for name, ss in names))
 
 
 if __name__ == "__main__":
-    OUT_FILE = Path("src/gen.rs")
-    OUT_FILE.write_text("\n".join(codegen_full(("input", statespace_input()), ("clipper", statespace_clipper()),
-                                               ("tone", statespace_tone()), ("output", statespace_output()))))
+    source_file = codegen_full(("input", statespace_input()), ("clipper", statespace_clipper()),
+                                               ("tone", statespace_tone()), ("output", statespace_output()))
+
+    source_file.write_to(Path("src/gen.rs"))

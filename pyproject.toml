@@ -4,12 +4,13 @@ version = "0.1.0"
 description = ""
 authors = ["Nathan Graule <solarliner@gmail.com>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.12"
-sympy = "^1.12"
-lcapy = "^1.20"
-
+python = "^3.10"
+sympy = "^1.11.1"
+lcapy = "^1.24"
+valib = { path = "../valib", develop = true }
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.28.0"
