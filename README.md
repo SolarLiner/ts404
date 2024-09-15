@@ -1,5 +1,7 @@
 # Error 404: Screamer not found
 
+**Warning**: This project has been moved back to [`valib`](https://github.com/SolarLiner/valib) in order to facilitate dogfooding the library.
+
 [Download (latest master, unstable)](https://nightly.link/SolarLiner/ts404/workflows/build/master)
 
 A guitar pedal plugin inspired by the most popular screamer pedal.
